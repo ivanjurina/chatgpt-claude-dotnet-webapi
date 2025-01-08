@@ -57,6 +57,21 @@ public class ChatRepository : IChatRepository
 
     public async Task SaveMessagesAsync(Message userMessage, Message assistantMessage)
     {
+        userMessage.Role = "user";
+        assistantMessage.Role = "assistant";
+        
+        // If this is the first message in the chat, use it as the chat title
+        var chat = await _context.Chats
+            .Include(c => c.Messages)
+            .FirstOrDefaultAsync(c => c.Id == userMessage.ChatId);
+
+        if (chat != null && !chat.Messages.Any())
+        {
+            chat.Title = userMessage.Content.Length > 100 
+                ? userMessage.Content.Substring(0, 97) + "..."
+                : userMessage.Content;
+        }
+
         _context.Messages.Add(userMessage);
         _context.Messages.Add(assistantMessage);
         await _context.SaveChangesAsync();

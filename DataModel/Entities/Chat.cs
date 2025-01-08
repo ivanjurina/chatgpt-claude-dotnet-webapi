@@ -7,4 +7,5 @@ public class Chat
     public DateTime CreatedAt { get; set; }
     public List<Message> Messages { get; set; } = new();
     public User User { get; set; } = null!;
+    public string Title { get; set; } = string.Empty;
 } 
