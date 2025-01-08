@@ -64,4 +64,24 @@ public class ChatController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while retrieving chat history.", error = ex.Message });
         }
     }
+
+    [HttpGet("conversations")]
+    public async Task<ActionResult<IEnumerable<Chat>>> GetUserConversations()
+    {
+        try
+        {
+            var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+                .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            if (userId == 0)
+                return Unauthorized();
+
+            var conversations = await _chatService.GetUserConversationsAsync(userId);
+            return Ok(conversations);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while retrieving conversations.", error = ex.Message });
+        }
+    }
 }

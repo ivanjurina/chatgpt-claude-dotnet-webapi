@@ -9,6 +9,7 @@ public interface IChatRepository
     Task<Chat> GetOrCreateChatAsync(int userId, string? conversationId);
     Task<List<Message>> GetChatMessagesAsync(int chatId);
     Task SaveMessagesAsync(Message userMessage, Message assistantMessage);
+    Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId);
 }
 
 public class ChatRepository : IChatRepository
@@ -60,5 +61,13 @@ public class ChatRepository : IChatRepository
         _context.Messages.Add(userMessage);
         _context.Messages.Add(assistantMessage);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId)
+    {
+        return await _context.Chats
+            .Where(c => c.UserId == userId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
     }
 }

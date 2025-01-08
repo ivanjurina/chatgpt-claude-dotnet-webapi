@@ -8,6 +8,7 @@ public interface IChatService
 {
     Task<ChatResponse> ChatAsync(int userId, ChatRequest request, string provider = "chatgpt");
     Task<Chat> GetChatHistoryAsync(int userId, string conversationId);
+    Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId);
 }
 
 public class ChatService : IChatService
@@ -38,5 +39,10 @@ public class ChatService : IChatService
     public async Task<Chat> GetChatHistoryAsync(int userId, string conversationId)
     {
         return await _repository.GetOrCreateChatAsync(userId, conversationId);
+    }
+
+    public async Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId)
+    {
+        return await _repository.GetUserConversationsAsync(userId);
     }
 }
