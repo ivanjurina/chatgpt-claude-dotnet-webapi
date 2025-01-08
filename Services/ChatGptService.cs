@@ -10,7 +10,7 @@ namespace chatgpt_claude_dotnet_webapi.Services
     public interface IChatGptService
     {
         Task<ChatResponse> ChatAsync(int userId, ChatRequest request);
-        Task<Chat> GetChatHistoryAsync(int userId, string conversationId);
+        Task<Chat> GetChatHistoryAsync(int userId, int? chatId);
     }
 
     public class ChatGptService : IChatGptService
@@ -34,7 +34,7 @@ namespace chatgpt_claude_dotnet_webapi.Services
 
         public async Task<ChatResponse> ChatAsync(int userId, ChatRequest request)
         {
-            var chat = await _repository.GetOrCreateChatAsync(userId, request.ConversationId);
+            var chat = await _repository.GetOrCreateChatAsync(userId, request.ChatId);
             var chatHistory = await _repository.GetChatMessagesAsync(chat.Id);
 
             var messages = chatHistory.Select(m => new
@@ -90,13 +90,13 @@ namespace chatgpt_claude_dotnet_webapi.Services
             return new ChatResponse
             {
                 Message = assistantMessage,
-                ConversationId = chat.ConversationId
+                ChatId = chat.Id
             };
         }
 
-        public async Task<Chat> GetChatHistoryAsync(int userId, string conversationId)
+        public async Task<Chat> GetChatHistoryAsync(int userId, int? chatId)
         {
-            return await _repository.GetOrCreateChatAsync(userId, conversationId);
+            return await _repository.GetOrCreateChatAsync(userId, chatId);
         }
     }
 

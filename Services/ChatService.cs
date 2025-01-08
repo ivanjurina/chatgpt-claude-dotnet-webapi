@@ -7,8 +7,8 @@ namespace chatgpt_claude_dotnet_webapi.Services;
 public interface IChatService
 {
     Task<ChatResponse> ChatAsync(int userId, ChatRequest request, string provider = "chatgpt");
-    Task<Chat> GetChatHistoryAsync(int userId, string conversationId);
-    Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId);
+    Task<Chat> GetChatHistoryAsync(int userId, int chatId);
+    Task<IEnumerable<Chat>> GetUserChatsAsync(int userId);
 }
 
 public class ChatService : IChatService
@@ -36,13 +36,13 @@ public class ChatService : IChatService
         };
     }
 
-    public async Task<Chat> GetChatHistoryAsync(int userId, string conversationId)
+    public async Task<Chat> GetChatHistoryAsync(int userId, int chatId)
     {
-        return await _repository.GetOrCreateChatAsync(userId, conversationId);
+        return await _repository.GetOrCreateChatAsync(userId, chatId);
     }
 
-    public async Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId)
+    public async Task<IEnumerable<Chat>> GetUserChatsAsync(int userId)
     {
-        return await _repository.GetUserConversationsAsync(userId);
+        return await _repository.GetUserChatsAsync(userId);
     }
 }

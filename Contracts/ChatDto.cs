@@ -3,7 +3,7 @@ namespace chatgpt_claude_dotnet_webapi.Contracts
     public class ChatHistoryDto
     {
         public int Id { get; set; }
-        public string ConversationId { get; set; } = string.Empty;
+        public string ChatId { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public List<MessageDto> Messages { get; set; } = new List<MessageDto>();
     }

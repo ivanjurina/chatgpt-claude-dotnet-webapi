@@ -45,8 +45,8 @@ public class ChatController : ControllerBase
         }
     }
 
-    [HttpGet("history/{conversationId}")]
-    public async Task<ActionResult<Chat>> GetChatHistory(string conversationId)
+    [HttpGet("history/{chatId}")]
+    public async Task<ActionResult<Chat>> GetChatHistory(int chatId)
     {
         try
         {
@@ -56,7 +56,7 @@ public class ChatController : ControllerBase
             if (userId == 0)
                 return Unauthorized();
 
-            var chat = await _chatService.GetChatHistoryAsync(userId, conversationId);
+            var chat = await _chatService.GetChatHistoryAsync(userId, chatId);
             return Ok(chat);
         }
         catch (Exception ex)
@@ -65,8 +65,8 @@ public class ChatController : ControllerBase
         }
     }
 
-    [HttpGet("conversations")]
-    public async Task<ActionResult<IEnumerable<Chat>>> GetUserConversations()
+    [HttpGet("chats")]
+    public async Task<ActionResult<IEnumerable<Chat>>> GetUserChats()
     {
         try
         {
@@ -76,12 +76,12 @@ public class ChatController : ControllerBase
             if (userId == 0)
                 return Unauthorized();
 
-            var conversations = await _chatService.GetUserConversationsAsync(userId);
-            return Ok(conversations);
+            var chats = await _chatService.GetUserChatsAsync(userId);
+            return Ok(chats);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred while retrieving conversations.", error = ex.Message });
+            return StatusCode(500, new { message = "An error occurred while retrieving chats.", error = ex.Message });
         }
     }
 }

@@ -6,10 +6,10 @@ namespace chatgpt_claude_dotnet_webapi.Repositories;
 
 public interface IChatRepository
 {
-    Task<Chat> GetOrCreateChatAsync(int userId, string? conversationId);
+    Task<Chat> GetOrCreateChatAsync(int userId, int? chatId);
     Task<List<Message>> GetChatMessagesAsync(int chatId);
     Task SaveMessagesAsync(Message userMessage, Message assistantMessage);
-    Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId);
+    Task<IEnumerable<Chat>> GetUserChatsAsync(int userId);
 }
 
 public class ChatRepository : IChatRepository
@@ -21,16 +21,16 @@ public class ChatRepository : IChatRepository
         _context = context;
     }
 
-    public async Task<Chat> GetOrCreateChatAsync(int userId, string? conversationId)
+    public async Task<Chat> GetOrCreateChatAsync(int userId, int? chatId)
     {
         Chat? chat = null;
-        if (!string.IsNullOrEmpty(conversationId))
+        if (chatId.HasValue)
         {
             chat = await _context.Chats
                 .Include(x => x.Messages)
                 .FirstOrDefaultAsync(c => 
                     c.UserId == userId && 
-                    c.ConversationId == conversationId);
+                    c.Id == chatId);
         }
 
         if (chat == null)
@@ -38,7 +38,6 @@ public class ChatRepository : IChatRepository
             chat = new Chat
             {
                 UserId = userId,
-                ConversationId = conversationId ?? Guid.NewGuid().ToString(),
                 CreatedAt = DateTime.UtcNow
             };
             _context.Chats.Add(chat);
@@ -63,7 +62,7 @@ public class ChatRepository : IChatRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<IEnumerable<Chat>> GetUserConversationsAsync(int userId)
+    public async Task<IEnumerable<Chat>> GetUserChatsAsync(int userId)
     {
         return await _context.Chats
             .Where(c => c.UserId == userId)

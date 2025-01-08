@@ -35,7 +35,7 @@ namespace chatgpt_claude_dotnet_webapi.Services
 
         public async Task<ChatResponse> ChatAsync(int userId, ChatRequest request)
         {
-            var chat = await _repository.GetOrCreateChatAsync(userId, request.ConversationId);
+            var chat = await _repository.GetOrCreateChatAsync(userId, request.ChatId);
             var chatHistory = await _repository.GetChatMessagesAsync(chat.Id);
 
             var requestBody = new
@@ -84,7 +84,7 @@ namespace chatgpt_claude_dotnet_webapi.Services
             return new ChatResponse
             {
                 Message = assistantMessage,
-                ConversationId = chat.ConversationId
+                ChatId = chat.Id
             };
         }
     }
