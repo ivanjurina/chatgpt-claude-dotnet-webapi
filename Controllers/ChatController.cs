@@ -26,7 +26,7 @@ public class ChatController : ControllerBase
     [HttpPost("message")]
     public async Task<ActionResult<ChatResponse>> SendMessage(
         [FromBody] ChatRequest request,
-        [FromQuery] string provider = "claude")
+        [FromQuery] string provider = "chatgpt")
     {
         try
         {
