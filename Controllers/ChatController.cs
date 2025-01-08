@@ -45,8 +45,8 @@ public class ChatController : ControllerBase
         }
     }
 
-    [HttpGet("history/{chatId}")]
-    public async Task<ActionResult<Chat>> GetChatHistory(int chatId)
+    [HttpGet("{chatId}")]
+    public async Task<ActionResult<Chat>> GetChat(int chatId)
     {
         try
         {
@@ -65,7 +65,7 @@ public class ChatController : ControllerBase
         }
     }
 
-    [HttpGet("chats")]
+    [HttpGet("")]
     public async Task<ActionResult<IEnumerable<Chat>>> GetUserChats()
     {
         try
