@@ -92,39 +92,45 @@ public class ChatController : ControllerBase
         [FromQuery] string provider = "chatgpt",
         CancellationToken cancellationToken = default)
     {
+        var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+            .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+        if (userId == 0)
+        {
+            Response.StatusCode = 401;
+            return;
+        }
+
+        Response.Headers.Add("Content-Type", "text/event-stream");
+        Response.Headers.Add("Cache-Control", "no-cache");
+        Response.Headers.Add("Connection", "keep-alive");
+        Response.Headers.Add("X-Accel-Buffering", "no");
+
         try
         {
-            var userId = int.Parse(_httpContextAccessor.HttpContext!.User
-                .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-
-            if (userId == 0)
-            {
-                Response.StatusCode = 401;
-                return;
-            }
-
-            Response.Headers.Add("Content-Type", "text/event-stream");
-            Response.Headers.Add("Cache-Control", "no-cache");
-            Response.Headers.Add("Connection", "keep-alive");
-            Response.Headers.Add("X-Accel-Buffering", "no");
-
-            await foreach (var chunk in _chatService.StreamChatAsync(userId, request, provider)
-                .WithCancellation(cancellationToken))
+            var stream = _chatService.StreamChatAsync(userId, request, provider);
+            
+            await foreach (var chunk in stream.WithCancellation(cancellationToken))
             {
                 if (cancellationToken.IsCancellationRequested) break;
 
-                var data = JsonSerializer.Serialize(chunk);
+                var data = JsonSerializer.Serialize(new
+                {
+                    message = chunk.Message,
+                    chatId = chunk.ChatId,
+                    isComplete = chunk.IsComplete,
+                    isNewChat = request.ChatId == null
+                });
+                
                 await Response.WriteAsync($"data: {data}\n\n", cancellationToken);
                 await Response.Body.FlushAsync(cancellationToken);
             }
 
-            // Send completion message
             await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
         catch (Exception ex)
         {
-            // Only send error if headers haven't been sent
             if (!Response.HasStarted)
             {
                 Response.StatusCode = 500;
