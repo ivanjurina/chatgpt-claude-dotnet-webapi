@@ -4,6 +4,7 @@ using chatgpt_claude_dotnet_webapi.Contracts;
 using chatgpt_claude_dotnet_webapi.Services;
 using System.Security.Claims;
 using chatgpt_claude_dotnet_webapi.DataModel.Entities;
+using System.Text.Json;
 
 namespace chatgpt_claude_dotnet_webapi.Controllers;
 
@@ -82,6 +83,38 @@ public class ChatController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred while retrieving chats.", error = ex.Message });
+        }
+    }
+
+    [HttpPost("message/stream")]
+    public async Task<IActionResult> StreamMessage(
+        [FromBody] ChatRequest request,
+        [FromQuery] string provider = "chatgpt")
+    {
+        try
+        {
+            var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+                .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            if (userId == 0)
+                return Unauthorized();
+
+            Response.Headers["Content-Type"] = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["Connection"] = "keep-alive";
+
+            await foreach (var chunk in _chatService.StreamChatAsync(userId, request, provider))
+            {
+                var data = $"data: {JsonSerializer.Serialize(chunk)}\n\n";
+                await Response.WriteAsync(data);
+                await Response.Body.FlushAsync();
+            }
+
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while processing your request.", error = ex.Message });
         }
     }
 }

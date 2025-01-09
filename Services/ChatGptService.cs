@@ -1,117 +1,113 @@
 using System.Net.Http.Json;
-using Microsoft.Extensions.Options;
-using chatgpt_claude_dotnet_webapi.Configuration;
-using chatgpt_claude_dotnet_webapi.Contracts;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using chatgpt_claude_dotnet_webapi.DataModel.Entities;
-using chatgpt_claude_dotnet_webapi.Repositories;
+using chatgpt_claude_dotnet_webapi.Configuration;
 
-namespace chatgpt_claude_dotnet_webapi.Services
+public interface IChatGPTService
 {
-    public interface IChatGptService
+    Task<string> GetResponseAsync(string message, List<Message> history);
+    IAsyncEnumerable<string> StreamResponseAsync(string message, List<Message> history);
+}
+
+public class ChatGPTService : IChatGPTService
+{
+    private readonly HttpClient _httpClient;
+    private readonly ChatGptSettings _settings;
+    private const string API_URL = "https://api.openai.com/v1/chat/completions";
+
+    public ChatGPTService(ChatGptSettings settings, HttpClient httpClient)
     {
-        Task<ChatResponse> ChatAsync(int userId, ChatRequest request);
-        Task<Chat> GetChatHistoryAsync(int userId, int? chatId);
+        _settings = settings;
+        _httpClient = httpClient;
+        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiKey}");
     }
 
-    public class ChatGptService : IChatGptService
+    public async Task<string> GetResponseAsync(string message, List<Message> history)
     {
-        private readonly HttpClient _httpClient;
-        private readonly ChatGptSettings _settings;
-        private readonly IChatRepository _repository; // Reusing the same repository
-        private const string OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+        var messages = history.Select(m => new { role = m.Role, content = m.Content }).ToList();
+        messages.Add(new { role = "user", content = message });
 
-        public ChatGptService(
-            HttpClient httpClient,
-            IOptions<ChatGptSettings> settings,
-            IChatRepository repository)
+        var request = new
         {
-            _httpClient = httpClient;
-            _settings = settings.Value;
-            _repository = repository;
-            
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiKey}");
-        }
+            model = "gpt-3.5-turbo",
+            messages = messages
+        };
 
-        public async Task<ChatResponse> ChatAsync(int userId, ChatRequest request)
+        var response = await _httpClient.PostAsJsonAsync(API_URL, request);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<ChatGPTResponse>();
+        return result?.Choices?[0]?.Message?.Content ?? throw new Exception("No response from ChatGPT");
+    }
+
+    public async IAsyncEnumerable<string> StreamResponseAsync(string message, List<Message> history)
+    {
+        var messages = history.Select(m => new { role = m.Role, content = m.Content }).ToList();
+        messages.Add(new { role = "user", content = message });
+
+        var request = new
         {
-            var chat = await _repository.GetOrCreateChatAsync(userId, request.ChatId);
-            var chatHistory = await _repository.GetChatMessagesAsync(chat.Id);
+            model = "gpt-3.5-turbo",
+            messages = messages,
+            stream = true
+        };
 
-            var messages = chatHistory.Select(m => new
-            {
-                role = m.Role,
-                content = m.Content
-            }).ToList();
+        var response = await _httpClient.PostAsJsonAsync(API_URL, request);
+        response.EnsureSuccessStatusCode();
 
-            var requestBody = new
-            {
-                model = "gpt-4-turbo-preview",
-                messages = messages.Concat(new[]
-                {
-                    new { role = "user", content = request.Message }
-                }),
-                max_tokens = _settings.MaxTokens,
-                temperature = 0.7
-            };
+        using var stream = await response.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
 
-            using var httpContent = JsonContent.Create(requestBody);
-            var response = await _httpClient.PostAsync(OPENAI_API_URL, httpContent);
-            
-            if (!response.IsSuccessStatusCode)
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync();
+            if (string.IsNullOrEmpty(line) || line == "data: [DONE]") continue;
+            if (!line.StartsWith("data: ")) continue;
+
+            var json = line.Substring(6);
+            var chunk = JsonSerializer.Deserialize<ChatGPTStreamResponse>(json);
+
+            if (!string.IsNullOrEmpty(chunk?.Choices?[0]?.Delta?.Content))
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new Exception($"ChatGPT API error: {errorContent}");
+                yield return chunk.Choices[0].Delta.Content;
             }
-            
-            var responseBody = await response.Content.ReadFromJsonAsync<ChatGptResponse>();
-            var assistantMessage = responseBody?.Choices?.FirstOrDefault()?.Message?.Content 
-                ?? throw new Exception("No response from ChatGPT");
-
-            // Save user message
-            var userMessage = new Message
-            {
-                ChatId = chat.Id,
-                Role = "user",
-                Content = request.Message,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            // Save assistant message
-            var assistantDbMessage = new Message
-            {
-                ChatId = chat.Id,
-                Role = "assistant",
-                Content = assistantMessage,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _repository.SaveMessagesAsync(userMessage, assistantDbMessage);
-
-            return new ChatResponse
-            {
-                Message = assistantMessage,
-                ChatId = chat.Id
-            };
         }
+    }
 
-        public async Task<Chat> GetChatHistoryAsync(int userId, int? chatId)
+    private class ChatGPTResponse
+    {
+        [JsonPropertyName("choices")]
+        public List<Choice> Choices { get; set; } = new();
+
+        public class Choice
         {
-            return await _repository.GetOrCreateChatAsync(userId, chatId);
+            [JsonPropertyName("message")]
+            public ChatMessage Message { get; set; } = new();
+
+            public class ChatMessage
+            {
+                [JsonPropertyName("content")]
+                public string Content { get; set; } = string.Empty;
+            }
         }
     }
 
-    public class ChatGptResponse
+    private class ChatGPTStreamResponse
     {
-        public List<Choice>? Choices { get; set; }
-    }
+        [JsonPropertyName("choices")]
+        public List<Choice> Choices { get; set; } = new();
 
-    public class Choice
-    {
-        public MessageGpt? Message { get; set; }
-    }
+        public class Choice
+        {
+            [JsonPropertyName("delta")]
+            public DeltaContent Delta { get; set; } = new();
 
-    public class MessageGpt
-    {
-        public string? Content { get; set; }
+            public class DeltaContent
+            {
+                [JsonPropertyName("content")]
+                public string Content { get; set; } = string.Empty;
+            }
+        }
     }
 } 

@@ -117,7 +117,7 @@ builder.Services.Configure<ChatGptSettings>(
     builder.Configuration.GetSection("ChatGptSettings"));
 
 // Register ChatGPT service
-builder.Services.AddHttpClient<IChatGptService, ChatGptService>();
+builder.Services.AddHttpClient<IChatGPTService, ChatGPTService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -128,6 +128,10 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod()
             .AllowAnyHeader());
 });
+
+// Add configuration
+builder.Services.Configure<ChatGptSettings>(builder.Configuration.GetSection("ChatGPT"));
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<ChatGptSettings>>().Value);
 
 var app = builder.Build();
 
