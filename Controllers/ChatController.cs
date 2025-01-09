@@ -87,9 +87,10 @@ public class ChatController : ControllerBase
     }
 
     [HttpPost("message/stream")]
-    public async Task<IActionResult> StreamMessage(
+    public async Task StreamMessage(
         [FromBody] ChatRequest request,
-        [FromQuery] string provider = "chatgpt")
+        [FromQuery] string provider = "chatgpt",
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -97,24 +98,42 @@ public class ChatController : ControllerBase
                 .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
             if (userId == 0)
-                return Unauthorized();
-
-            Response.Headers["Content-Type"] = "text/event-stream";
-            Response.Headers["Cache-Control"] = "no-cache";
-            Response.Headers["Connection"] = "keep-alive";
-
-            await foreach (var chunk in _chatService.StreamChatAsync(userId, request, provider))
             {
-                var data = $"data: {JsonSerializer.Serialize(chunk)}\n\n";
-                await Response.WriteAsync(data);
-                await Response.Body.FlushAsync();
+                Response.StatusCode = 401;
+                return;
             }
 
-            return Ok();
+            Response.Headers.Add("Content-Type", "text/event-stream");
+            Response.Headers.Add("Cache-Control", "no-cache");
+            Response.Headers.Add("Connection", "keep-alive");
+            Response.Headers.Add("X-Accel-Buffering", "no");
+
+            await foreach (var chunk in _chatService.StreamChatAsync(userId, request, provider)
+                .WithCancellation(cancellationToken))
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                var data = JsonSerializer.Serialize(chunk);
+                await Response.WriteAsync($"data: {data}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+
+            // Send completion message
+            await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred while processing your request.", error = ex.Message });
+            // Only send error if headers haven't been sent
+            if (!Response.HasStarted)
+            {
+                Response.StatusCode = 500;
+                await Response.WriteAsJsonAsync(new 
+                { 
+                    message = "An error occurred while processing your request.", 
+                    error = ex.Message 
+                }, cancellationToken);
+            }
         }
     }
 }

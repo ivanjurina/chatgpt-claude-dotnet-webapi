@@ -46,14 +46,17 @@ public class ChatGPTService : IChatGPTService
         var messages = history.Select(m => new { role = m.Role, content = m.Content }).ToList();
         messages.Add(new { role = "user", content = message });
 
-        var request = new
+        var request = new HttpRequestMessage(HttpMethod.Post, API_URL);
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
+        
+        request.Content = JsonContent.Create(new
         {
             model = "gpt-3.5-turbo",
             messages = messages,
             stream = true
-        };
+        });
 
-        var response = await _httpClient.PostAsJsonAsync(API_URL, request);
+        var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
         using var stream = await response.Content.ReadAsStreamAsync();
@@ -62,15 +65,27 @@ public class ChatGPTService : IChatGPTService
         while (!reader.EndOfStream)
         {
             var line = await reader.ReadLineAsync();
-            if (string.IsNullOrEmpty(line) || line == "data: [DONE]") continue;
+            if (string.IsNullOrEmpty(line)) continue;
+            if (line == "data: [DONE]") break;
             if (!line.StartsWith("data: ")) continue;
 
             var json = line.Substring(6);
-            var chunk = JsonSerializer.Deserialize<ChatGPTStreamResponse>(json);
-
-            if (!string.IsNullOrEmpty(chunk?.Choices?[0]?.Delta?.Content))
+            ChatGPTStreamResponse? chunk = null;
+            
+            try 
             {
-                yield return chunk.Choices[0].Delta.Content;
+                chunk = JsonSerializer.Deserialize<ChatGPTStreamResponse>(json);
+            }
+            catch (JsonException) 
+            {
+                continue; // Skip malformed JSON
+            }
+
+            var content = chunk?.Choices?.FirstOrDefault()?.Delta?.Content;
+            if (!string.IsNullOrEmpty(content))
+            {
+                yield return content;
+                await Task.Delay(10); // Small delay to control the stream rate
             }
         }
     }

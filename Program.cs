@@ -11,6 +11,7 @@ using chatgpt_claude_dotnet_webapi.Repositories;
 using chatgpt_claude_dotnet_webapi.Services;
 using Anthropic;
 using chatgpt_claude_dotnet_webapi.Contracts;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -132,6 +133,18 @@ builder.Services.AddCors(options =>
 // Add configuration
 builder.Services.Configure<ChatGptSettings>(builder.Configuration.GetSection("ChatGPT"));
 builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<ChatGptSettings>>().Value);
+
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+    options.AllowSynchronousIO = true;
+    options.Limits.MinResponseDataRate = null;
+    options.Limits.MinRequestBodyDataRate = null;
+});
+
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.AllowSynchronousIO = true;
+});
 
 var app = builder.Build();
 
