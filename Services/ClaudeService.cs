@@ -1,5 +1,3 @@
-using System.Net.Http.Json;
-using System.Text.Json;
 using chatgpt_claude_dotnet_webapi.Configuration;
 using Microsoft.Extensions.Options;
 using chatgpt_claude_dotnet_webapi.Contracts;

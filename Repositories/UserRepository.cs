@@ -13,6 +13,9 @@ namespace chatgpt_claude_dotnet_webapi.Repositories
         Task Add(User user);
         Task Update(User user);
         Task Delete(User user);
+        Task<IEnumerable<User>> GetAllUsersAsync();
+        Task<User?> GetByIdAsync(int id);
+        Task UpdateAsync(User user);
     }
 
     public class UserRepository : IUserRepository
@@ -59,6 +62,22 @@ namespace chatgpt_claude_dotnet_webapi.Repositories
         public async Task Delete(User user)
         {
             _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<User>> GetAllUsersAsync()
+        {
+            return await _context.Users.ToListAsync();
+        }
+
+        public async Task<User?> GetByIdAsync(int id)
+        {
+            return await _context.Users.FindAsync(id);
+        }
+
+        public async Task UpdateAsync(User user)
+        {
+            _context.Users.Update(user);
             await _context.SaveChangesAsync();
         }
     }

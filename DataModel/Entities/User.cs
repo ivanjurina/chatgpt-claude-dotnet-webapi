@@ -15,6 +15,10 @@ namespace chatgpt_claude_dotnet_webapi.DataModel.Entities
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
+        public bool IsActive { get; set; } = true;
+
+        public List<Chat> Chats { get; set; } = new();
+
         public bool IsAdmin { get; set; }  
 
 

@@ -19,6 +19,7 @@ namespace chatgpt_claude_dotnet_webapi.Services
         Task<AuthResponseDto> Login(LoginDto loginDto);
         Task<AuthResponseDto> Register(RegisterDto registerDto);
         Task<ServiceResponse<string>> ChangePassword(string newPassword);
+        Task<UserDto> GetCurrentUser();
     }
 
     public class AuthService : IAuthService
@@ -44,8 +45,8 @@ namespace chatgpt_claude_dotnet_webapi.Services
         public async Task<AuthResponseDto> Login(LoginDto loginDto)
         {
             var user = await _userRepository.GetByUsername(loginDto.Username);
-            if (user == null)
-                throw new Exception("Invalid username or password");
+            if (user == null || !user.IsActive)
+                throw new UnauthorizedAccessException("Invalid username or password");
 
             var result = user.PasswordHash == loginDto.Password;
             if (result != true)
@@ -97,6 +98,21 @@ namespace chatgpt_claude_dotnet_webapi.Services
             return response;
         }
 
+        public async Task<UserDto> GetCurrentUser()
+        {
+            var userId = _httpContextAccessor.HttpContext.User.GetUserId();
+            var user = await _userRepository.GetById(userId);
+            if (user == null)
+                throw new UnauthorizedAccessException("User not found");
+        
+            return new UserDto 
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email
+            };
+        }   
+
         private string GenerateJwtToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -120,5 +136,7 @@ namespace chatgpt_claude_dotnet_webapi.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+
+
     }
 }

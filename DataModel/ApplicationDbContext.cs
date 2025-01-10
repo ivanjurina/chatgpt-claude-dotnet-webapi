@@ -42,7 +42,8 @@ namespace chatgpt_claude_dotnet_webapi.DataModel
                 Id = 1,
                 Username = "admin",
                 PasswordHash = "admin",
-                IsAdmin = true
+                IsAdmin = true,
+                IsActive = true
             });
         }
     }

@@ -10,7 +10,6 @@ using chatgpt_claude_dotnet_webapi.DataModel.Entities;
 using chatgpt_claude_dotnet_webapi.Repositories;
 using chatgpt_claude_dotnet_webapi.Services;
 using Anthropic;
-using chatgpt_claude_dotnet_webapi.Contracts;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Options;
 
@@ -145,6 +144,8 @@ builder.Services.Configure<IISServerOptions>(options =>
 {
     options.AllowSynchronousIO = true;
 });
+
+builder.Services.AddHttpClient<ISpeechService, SpeechService>();
 
 var app = builder.Build();
 

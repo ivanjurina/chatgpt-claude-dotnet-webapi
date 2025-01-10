@@ -11,6 +11,9 @@ namespace chatgpt_claude_dotnet_webapi.Services
         Task<UserDto> CreateUser(CreateUserDto createUserDto);
         Task<bool> UpdateUser(int id, UpdateUserDto updateUserDto);
         Task<bool> DeleteUser(int id);
+        Task<IEnumerable<UserDto>> GetAllUsersAsync();
+        Task<UserDto?> GetUserByIdAsync(int id);
+        Task<bool> UpdateUserStatusAsync(int id, bool isActive);
     }
 
     public class UserService : IUserService
@@ -74,6 +77,44 @@ namespace chatgpt_claude_dotnet_webapi.Services
             if (user == null) return false;
 
             await _userRepository.Delete(user);
+            return true;
+        }
+
+        public async Task<IEnumerable<UserDto>> GetAllUsersAsync()
+        {
+            var users = await _userRepository.GetAllUsersAsync();
+            return users.Select(u => new UserDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                IsActive = u.IsActive,
+                IsAdmin = u.IsAdmin
+            });
+        }
+
+        public async Task<UserDto?> GetUserByIdAsync(int id)
+        {
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null) return null;
+
+            return new UserDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                IsActive = user.IsActive,
+                IsAdmin =  user.IsAdmin
+            };
+        }
+
+        public async Task<bool> UpdateUserStatusAsync(int id, bool isActive)
+        {
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null) return false;
+
+            user.IsActive = isActive;
+            await _userRepository.UpdateAsync(user);
             return true;
         }
     }

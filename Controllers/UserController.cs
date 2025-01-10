@@ -5,63 +5,66 @@ using chatgpt_claude_dotnet_webapi.Contracts;
 
 namespace chatgpt_claude_dotnet_webapi.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin")]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public UserController(IUserService userService)
+        public UserController(IUserService userService, IHttpContextAccessor httpContextAccessor)
         {
             _userService = userService;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
         {
-            var users = await _userService.GetAllUsers();
-            return Ok(users);
+            try
+            {
+                var users = await _userService.GetAllUsersAsync();
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving users", error = ex.Message });
+            }
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetUser(int id)
         {
-            var user = await _userService.GetUserById(id);
-            if (user == null)
+            try
             {
-                return NotFound();
+                var user = await _userService.GetUserByIdAsync(id);
+                if (user == null)
+                    return NotFound(new { message = "User not found" });
+
+                return Ok(user);
             }
-            return Ok(user);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving user", error = ex.Message });
+            }
         }
 
-        [HttpPost]
-        public async Task<ActionResult<UserDto>> CreateUser(CreateUserDto createUserDto)
+        [HttpPatch("{id}")]
+        public async Task<ActionResult> UpdateUser(int id, [FromBody] UpdateUserDto updateDto)
         {
-            var user = await _userService.CreateUser(createUserDto);
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, UpdateUserDto updateUserDto)
-        {
-            var result = await _userService.UpdateUser(id, updateUserDto);
-            if (!result)
+            try
             {
-                return NotFound();
-            }
-            return NoContent();
-        }
+                var success = await _userService.UpdateUserStatusAsync(id, updateDto.IsActive);
+                if (!success)
+                    return NotFound(new { message = "User not found" });
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
-        {
-            var result = await _userService.DeleteUser(id);
-            if (!result)
-            {
-                return NotFound();
+                return Ok(new { message = "User updated successfully" });
             }
-            return NoContent();
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error updating user", error = ex.Message });
+            }
         }
     }
 }
