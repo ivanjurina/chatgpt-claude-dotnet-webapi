@@ -15,13 +15,16 @@ public class ChatController : ControllerBase
 {
     private readonly IChatService _chatService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<ChatController> _logger;
 
     public ChatController(
         IChatService chatService,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<ChatController> logger)
     {
         _chatService = chatService;
         _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
     }
 
     [HttpPost("message")]
@@ -66,22 +69,30 @@ public class ChatController : ControllerBase
         }
     }
 
-    [HttpGet("")]
-    public async Task<ActionResult<IEnumerable<Chat>>> GetUserChats()
+    [HttpGet("chats")]
+    public async Task<ActionResult<PaginatedResult<Chat>>> GetUserChats(
+        [FromQuery] int pageNumber = 1, 
+        [FromQuery] int pageSize = 10)
     {
         try
         {
+            if (pageSize <= 0 || pageNumber <= 0)
+            {
+                return BadRequest(new { message = "Invalid pagination parameters" });
+            }
+
             var userId = int.Parse(_httpContextAccessor.HttpContext!.User
                 .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
             if (userId == 0)
-                return Unauthorized();
+                return Unauthorized(new { message = "Invalid user token" });
 
-            var chats = await _chatService.GetUserChatsAsync(userId);
-            return Ok(chats);
+            var result = await _chatService.GetUserChatsAsync(userId, pageNumber, pageSize);
+            return Ok(result);
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Error retrieving user chats");
             return StatusCode(500, new { message = "An error occurred while retrieving chats.", error = ex.Message });
         }
     }

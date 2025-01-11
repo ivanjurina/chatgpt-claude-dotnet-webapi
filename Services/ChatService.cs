@@ -3,6 +3,7 @@ using chatgpt_claude_dotnet_webapi.DataModel.Entities;
 using chatgpt_claude_dotnet_webapi.Repositories;
 using System;
 using System.Text;
+using System.Threading;
 
 namespace chatgpt_claude_dotnet_webapi.Services;
 
@@ -11,7 +12,11 @@ public interface IChatService
     Task<ChatResponse> ChatAsync(int userId, ChatRequest request, string provider = "chatgpt");
     IAsyncEnumerable<ChatResponse> StreamChatAsync(int userId, ChatRequest request, string provider = "chatgpt");
     Task<Chat> GetChatHistoryAsync(int userId, int chatId);
-    Task<IEnumerable<Chat>> GetUserChatsAsync(int userId);
+    Task<PaginatedResult<Chat>> GetUserChatsAsync(
+        int userId, 
+        int pageNumber = 1, 
+        int pageSize = 10,
+        CancellationToken cancellationToken = default);
 }
 
 public class ChatService : IChatService
@@ -107,8 +112,12 @@ public class ChatService : IChatService
         return chat;
     }
 
-    public async Task<IEnumerable<Chat>> GetUserChatsAsync(int userId)
+    public async Task<PaginatedResult<Chat>> GetUserChatsAsync(
+        int userId, 
+        int pageNumber = 1, 
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
-        return await _repository.GetUserChatsAsync(userId);
+        return await _repository.GetUserChatsAsync(userId, pageNumber, pageSize, cancellationToken);
     }
 }

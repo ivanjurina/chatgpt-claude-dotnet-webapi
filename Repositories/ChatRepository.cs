@@ -9,7 +9,11 @@ public interface IChatRepository
     Task<Chat> GetOrCreateChatAsync(int userId, int? chatId);
     Task<List<Message>> GetChatMessagesAsync(int chatId);
     Task SaveMessagesAsync(Message userMessage, Message assistantMessage);
-    Task<IEnumerable<Chat>> GetUserChatsAsync(int userId);
+    Task<PaginatedResult<Chat>> GetUserChatsAsync(
+        int userId, 
+        int pageNumber, 
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }
 
 public class ChatRepository : IChatRepository
@@ -77,11 +81,21 @@ public class ChatRepository : IChatRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<IEnumerable<Chat>> GetUserChatsAsync(int userId)
+    public async Task<PaginatedResult<Chat>> GetUserChatsAsync(
+        int userId, 
+        int pageNumber, 
+        int pageSize,
+        CancellationToken cancellationToken = default)
     {
-        return await _context.Chats
+        var query = _context.Chats
+            .Include(c => c.Messages)
             .Where(c => c.UserId == userId)
-            .OrderByDescending(c => c.CreatedAt)
-            .ToListAsync();
+            .OrderByDescending(c => c.Messages.Max(m => m.CreatedAt));
+
+        return await PaginatedResult<Chat>.CreateAsync(
+            query, 
+            pageNumber, 
+            pageSize, 
+            cancellationToken);
     }
 }
