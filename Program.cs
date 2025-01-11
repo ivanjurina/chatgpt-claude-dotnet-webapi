@@ -112,6 +112,8 @@ builder.Services.AddHttpClient<ClaudeService>();
 // Add chat services
 builder.Services.AddScoped<IChatService, ChatService>();
 
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+
 // Add ChatGPT configuration
 builder.Services.Configure<ChatGptSettings>(
     builder.Configuration.GetSection("ChatGptSettings"));
