@@ -153,4 +153,61 @@ public class ChatController : ControllerBase
             }
         }
     }
+
+    [HttpPost("document/{documentId}/message")]
+    public async Task<ActionResult<ChatResponse>> SendMessageWithDocument(
+        [FromBody] ChatRequest request,
+        int documentId)
+    {
+        try
+        {
+            var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+                .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            var response = await _chatService.ChatWithDocumentAsync(userId, request, documentId);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing chat message with document");
+            return StatusCode(500, new { message = "An error occurred", error = ex.Message });
+        }
+    }
+
+    [HttpPost("document/{documentId}/message/stream")]
+    public async Task StreamMessageWithDocument(
+        [FromBody] ChatRequest request,
+        int documentId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = int.Parse(_httpContextAccessor.HttpContext!.User
+                .FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            Response.Headers.Add("Content-Type", "text/event-stream");
+            Response.Headers.Add("Cache-Control", "no-cache");
+            Response.Headers.Add("Connection", "keep-alive");
+
+            await foreach (var chunk in _chatService.StreamChatWithDocumentAsync(userId, request, documentId)
+                .WithCancellation(cancellationToken))
+            {
+                var data = JsonSerializer.Serialize(chunk);
+                await Response.WriteAsync($"data: {data}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!Response.HasStarted)
+            {
+                Response.StatusCode = 500;
+                await Response.WriteAsJsonAsync(new { error = ex.Message });
+            }
+        }
+    }
 }
